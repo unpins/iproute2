@@ -110,7 +110,10 @@
             sed -i '/-DLIBBPF_DYNAMIC/d' config.mk
           '';
           preBuild = (old.preBuild or "") + ''
-            make -C netem
+            # netem is the one place upstream runs what it just built, so its
+            # generators need the build machine's cc; a bare `make` here would
+            # miss the HOSTCC that $makeFlags already carries.
+            make -C netem HOSTCC="$CC_FOR_BUILD"
             {
               echo 'static const struct { const char *name, *data; } netem_dists[] = {'
               for d in normal pareto paretonormal experimental; do
