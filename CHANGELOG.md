@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [7.0.0-1] - 2026-09-26
+
 Initial release — `iproute2` 7.0.0 as a single self-contained binary, built
 natively for Linux.
 
