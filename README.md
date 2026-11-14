@@ -1,6 +1,6 @@
 # iproute2
 
-[iproute2](https://wiki.linuxfoundation.org/networking/iproute2) — the Linux networking tools: `ip` (addresses, links, routes, rules, neighbours, namespaces, tunnels), `ss` (sockets), `tc` (traffic control), `bridge`, `devlink`, `rdma`, `dcb`, `vdpa`, `tipc`, `dpll`, `netshaper` and the `nstat`/`ifstat`/`lnstat`/`rtacct` counters. A single self-contained binary, built natively for Linux.
+[iproute2](https://wiki.linuxfoundation.org/networking/iproute2) — the Linux networking programs: `ip` (addresses, links, routes, rules, neighbours, namespaces, tunnels), `ss` (sockets), `tc` (traffic control), `bridge`, `devlink`, `rdma`, `dcb`, `vdpa`, `tipc`, `dpll`, `netshaper` and the `nstat`/`ifstat`/`lnstat`/`rtacct` counters. A single self-contained binary, built natively for Linux.
 
 [![CI](https://github.com/unpins/iproute2/actions/workflows/iproute2.yml/badge.svg)](https://github.com/unpins/iproute2/actions)
 ![Linux](https://img.shields.io/badge/Linux-✓-success?logo=linux&logoColor=white)
