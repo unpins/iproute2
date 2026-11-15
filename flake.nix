@@ -84,6 +84,7 @@
           patches = (old.patches or [ ]) ++ [
             ./misc-link-from-objects.patch
             ./netem-builtin-dists.patch
+            ./ematch-builtin-map.patch
           ];
           # configure assumes a pkg-config libbpf is libbpf.so and has `ip -V`
           # look for it in /proc/self/maps; here it is linked in, so the
