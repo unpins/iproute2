@@ -30,7 +30,7 @@ unpin install iproute2
 
 ## Man pages
 
-The section-8 pages are embedded — read them with `unpin man iproute2 ip-route`.
+The man pages are embedded — read them with `unpin man iproute2 ip-route`.
 
 ## Build locally
 
@@ -55,5 +55,7 @@ The [Releases](https://github.com/unpins/iproute2/releases) page has standalone 
 
 - **Platform:** Linux only (netlink).
 - **BPF:** `ip link … xdp obj` and `tc … bpf obj` load BPF object files through the bundled libbpf.
-- **Name tables:** `ip` reads `rt_tables`, `rt_protos` and the other name tables from `/etc/iproute2`, then `/usr/share/iproute2`, as a distro install does; the built-in names (`main`, `local`, `kernel`, …) work without them.
-- **`tc` `ipt` ematch:** not built. It matches packets with iptables extensions, which libxtables loads as plugins at run time.
+- **Name tables:** `ip` reads `rt_tables`, `rt_protos`, `rt_scopes`, `rt_realms`, `rt_dsfield`, `group`, `nl_protos` and `bpf_pinning` from `/etc/iproute2`, then `/usr/share/iproute2`, as a distro install does. They are the host's configuration and are not embedded: the built-in names (`main`, `local`, `kernel`, …) work without them, and anything else shows as a number. `tc`'s `ematch_map` is embedded, so `basic match 'cmp(…)'` and the other ematches work on a host without iproute2; a copy on disk takes precedence.
+- **netem tables:** the `normal`, `pareto`, `paretonormal` and `experimental` delay distributions are embedded. A table in `TC_LIB_DIR` or `/usr/lib/tc` takes precedence.
+- **`tc` `ipt` and `ipset` ematches:** not built. nixpkgs' static build leaves out the xtables support both are compiled with; `ipt` would also need libxtables to load each iptables match as a plugin at run time.
+- **Tests:** iproute2's test suite runs on native builds (0 failures under static-musl) and is skipped on cross targets the build host can't execute. Four tests are left out: two `ip netns` tests that create `/var/run/netns`, the `bareudp` test (a kernel module Debian does not build), and the `ip tunnel` test, whose ioctl only loads `ip_gre` for the host's root.

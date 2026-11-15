@@ -25,8 +25,9 @@
       # nixpkgs' static build drops libbpf/elfutils (BPF object loading in
       # `ip link … xdp obj` and `tc … bpf obj`); upstream also probes libselinux
       # (ss -Z), libtirpc (ss RPC info) and libcap (ip vrf exec).
-      # Dropped: the tc `ipt` ematch, since libxtables loads each iptables match
-      # as a plugin at run time.
+      # Dropped: the tc `ipt` and `ipset` ematches. nixpkgs' static build sets
+      # TC_CONFIG_NO_XT, and tc/Makefile builds em_ipset.o only beside em_ipt.o;
+      # libxtables would load each iptables match as a plugin at run time anyway.
       build = pkgs:
         let
           p = pkgs.pkgsStatic;
@@ -71,7 +72,7 @@
         in
         p.iproute2.overrideAttrs (old: {
           # pkgsStatic moves buildInputs here. python3 serves only the routel
-          # script, which is not shipped; iptables only the dropped ematch.
+          # script, which is not shipped; iptables only the dropped ematches.
           propagatedBuildInputs = p.lib.filter (d: !(p.lib.elem (d.pname or "") [ "python3" "iptables" ])) old.propagatedBuildInputs;
           buildInputs = old.buildInputs ++ [ libbpf elfutils p.zlib p.zstd p.libselinux libtirpc p.libcap ];
           makeFlags = old.makeFlags ++ [
