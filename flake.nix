@@ -12,7 +12,6 @@
     unpins-lib.lib.mkStandaloneFlake {
       inherit self;
       name = "iproute2";
-      binName = "iproute2";
       smoke = [ "--unpin-program=ip" "-V" ];
       smokePattern = "^ip utility, iproute2-[0-9]+\\.[0-9]+";
       engine = "unpin-llvm";
@@ -22,7 +21,6 @@
           "devlink" "rdma" "dcb" "vdpa" "tipc" "genl" "dpll" "netshaper"
         ] ++ [ { name = "lnstat"; aliases = [ "rtstat" "ctstat" ]; } ];
       };
-      license = "GPL-2.0-only";
       linuxOnly = true; # netlink
       # nixpkgs' static build drops libbpf/elfutils (BPF object loading in
       # `ip link … xdp obj` and `tc … bpf obj`); upstream also probes libselinux
