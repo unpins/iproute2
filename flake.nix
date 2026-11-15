@@ -81,26 +81,10 @@
             "LIBDIR=/usr/lib"
             "CONF_USR_DIR=/usr/share/iproute2"
           ];
-          postPatch = old.postPatch + ''
-            # nstat/ifstat/rtacct/arpd compile and link in one `cc -o x x.c`, and
-            # the engine takes a program's objects from its link line. Split them;
-            # make's built-in rule compiles x.o with the same CFLAGS.
-            sed -E -i \
-              -e 's/^(nstat|ifstat|rtacct|arpd): \1\.c$/\1: \1.o/' \
-              -e 's/-o (nstat|ifstat|rtacct|arpd) \1\.c /-o \1 \1.o /' \
-              misc/Makefile
-            # `tc qdisc … netem delay … distribution normal` reads its table from
-            # LIBDIR/tc/<name>.dist. Keep that lookup first (and TC_LIB_DIR), and
-            # fall back to the four tables upstream generates, compiled in.
-            substituteInPlace tc/q_netem.c \
-              --replace-fail '#include "tc_common.h"' '#include "tc_common.h"
-            #include "netem_dists.h"' \
-              --replace-fail '	f = fopen(name, "r");
-            	if (f == NULL) {' '	f = fopen(name, "r");
-            	if (f == NULL)
-            		f = netem_builtin_dist(type);
-            	if (f == NULL) {'
-          '';
+          patches = (old.patches or [ ]) ++ [
+            ./misc-link-from-objects.patch
+            ./netem-builtin-dists.patch
+          ];
           # configure assumes a pkg-config libbpf is libbpf.so and has `ip -V`
           # look for it in /proc/self/maps; here it is linked in, so the
           # compile-time version is the running one.

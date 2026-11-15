@@ -1,0 +1,24 @@
+`tc qdisc … netem delay … distribution normal` reads its table from
+LIBDIR/tc/<name>.dist. Keep that lookup first (and TC_LIB_DIR), and fall back
+to the four tables upstream generates, compiled in (tc/netem_dists.h, written
+in preBuild).
+
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -19,6 +19,7 @@
+ #include "utils.h"
+ #include "tc_util.h"
+ #include "tc_common.h"
++#include "netem_dists.h"
+ 
+ static void explain(void)
+ {
+@@ -133,6 +134,8 @@
+ 
+ 	snprintf(name, sizeof(name), "%s/%s.dist", get_tc_lib(), type);
+ 	f = fopen(name, "r");
++	if (f == NULL)
++		f = netem_builtin_dist(type);
+ 	if (f == NULL) {
+ 		fprintf(stderr, "No distribution data for %s (%s: %s)\n",
+ 			type, name, strerror(errno));
