@@ -137,6 +137,36 @@
               rm -f "''${!_o}"/share/man/man8/routel.8* "''${!_o}"/share/man/man3/libnetlink.3*
             done
           '';
+          # Upstream's `make check` re-runs ./configure over the built tree and
+          # never fails (it prints FAILED and exits 0), so run the .t files here,
+          # each in its own network namespace as root of a user namespace (the
+          # suite wants `sudo unshare -n`). Left out: ip netns (creates
+          # /var/run/netns), bareudp (a module Debian's kernel does not build)
+          # and ip tunnel (the ioctl path loads ip_gre only for init-ns root).
+          doCheck = pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform;
+          nativeCheckInputs = [ pkgs.buildPackages.util-linux ];
+          checkPhase = ''
+            runHook preCheck
+            cd testsuite
+            make -C tools
+            ./tools/generate_nlmsg
+            failed=
+            for t in $(cd tests && find . -name '*.t' | sort); do
+              t=''${t#./}
+              case $t in ip/netns/*|ip/link/add_type_bareudp.t|ip/tunnel/add_tunnel.t) continue ;; esac
+              mkdir -p results/$(dirname $t)
+              rm -f results/$t.err
+              STD_ERR=$(mktemp) STD_OUT=$(mktemp) DEV=lo IPVER=$t SNAME=this \
+                TC=$PWD/../tc/tc IP=$PWD/../ip/ip SS=$PWD/../misc/ss BRIDGE=$PWD/../bridge/bridge \
+                ERRF=results/$t.err unshare -rn tests/$t > results/$t.out && rc=0 || rc=$?
+              if [ $rc = 127 ]; then echo "SKIP $t"
+              elif [ -e results/$t.err ]; then echo "FAIL $t"; cat results/$t.err; failed=1
+              else echo "PASS $t"; fi
+            done
+            cd ..
+            [ -z "$failed" ]
+            runHook postCheck
+          '';
           installFlags = (old.installFlags or [ ]) ++ [
             "LIBDIR=$(out)/lib"
             "CONF_USR_DIR=$(out)/share/iproute2"
