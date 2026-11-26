@@ -1,0 +1,94 @@
+The name tables (rt_protos, rt_tables, rt_dsfield, group, nl_protos, …,
+bpf_pinning and tc's ematch_map) are read from /etc/iproute2 and then
+/usr/share/iproute2. A host without an iproute2 package has neither, and then
+`ip` prints numbers where names belong and every tc ematch fails with "Unable
+to find ematch". conf_fopen keeps both lookups and, when the /usr/share copy
+is missing, reads upstream's own from the binary (UNPIN_IPROUTE2_DIR, served
+by unpin-vfs). Files on disk keep precedence.
+
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -399,4 +399,7 @@
+ int open_fds_add(int fd);
+ void open_fds_close(void);
+ 
++/* fopen(file, "r"); a missing CONF_USR_DIR file falls back to the copy in the binary */
++FILE *conf_fopen(const char *file);
++
+ #endif /* __UTILS_H__ */
+--- a/lib/bpf_legacy.c
++++ b/lib/bpf_legacy.c
+@@ -2712,7 +2712,7 @@
+ 	FILE *fp;
+ 	int ret;
+ 
+-	fp = fopen(db_file, "r");
++	fp = conf_fopen(db_file);
+ 	if (!fp)
+ 		return -errno;
+ 
+--- a/lib/rt_names.c
++++ b/lib/rt_names.c
+@@ -58,6 +58,24 @@
+ 	return 0;
+ }
+ 
++FILE *unpin_vfs_fopen(const char *path, const char *mode);
++
++FILE *conf_fopen(const char *file)
++{
++	static const char usr[] = CONF_USR_DIR "/";
++	char path[PATH_MAX];
++	FILE *fp = fopen(file, "r");
++
++	if (fp || errno != ENOENT || strncmp(file, usr, sizeof(usr) - 1))
++		return fp;
++	snprintf(path, sizeof(path), "%s/%s", UNPIN_IPROUTE2_DIR,
++		 file + sizeof(usr) - 1);
++	fp = unpin_vfs_fopen(path, "r");
++	if (!fp)
++		errno = ENOENT;
++	return fp;
++}
++
+ static int
+ rtnl_hash_initialize(const char *file, struct rtnl_hash_entry **hash, int size)
+ {
+@@ -67,7 +85,7 @@
+ 	char namebuf[NAME_MAX_LEN] = {0};
+ 	int ret;
+ 
+-	fp = fopen(file, "r");
++	fp = conf_fopen(file);
+ 	if (!fp)
+ 		return -errno;
+ 
+@@ -104,7 +122,7 @@
+ 	char namebuf[NAME_MAX_LEN] = {0};
+ 	int ret;
+ 
+-	fp = fopen(file, "r");
++	fp = conf_fopen(file);
+ 	if (!fp)
+ 		return -errno;
+ 
+--- a/tc/m_ematch.c
++++ b/tc/m_ematch.c
+@@ -51,7 +51,7 @@
+ {
+ 	int err = -EINVAL;
+ 	char buf[512];
+-	FILE *fd = fopen(file, "r");
++	FILE *fd = conf_fopen(file);
+ 
+ 	if (fd == NULL)
+ 		return -errno;
+@@ -89,7 +89,7 @@
+ {
+ 	int err = -EINVAL;
+ 	char buf[512];
+-	FILE *fd = fopen(file, "r");
++	FILE *fd = conf_fopen(file);
+ 
+ 	if (fd == NULL)
+ 		return -errno;

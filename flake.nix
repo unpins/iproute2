@@ -9,6 +9,19 @@
   inputs.unpins-lib.url = "github:unpins/nix-lib";
 
   outputs = { self, unpins-lib }:
+    let
+      # Upstream's name tables (etc/iproute2), read out of the binary when
+      # neither /etc/iproute2 nor /usr/share/iproute2 has them
+      # (conf-builtin-tables.patch). The *.d dirs hold only a README.
+      confRoot = "/__unpins_iproute2__";
+      confTree = pkgs: pkgs.buildPackages.runCommand "iproute2-conf" { } ''
+        mkdir src
+        tar -xf ${pkgs.iproute2.src} -C src --strip-components=3 --wildcards '*/etc/iproute2/*'
+        mkdir "$out"
+        find src -maxdepth 1 -type f -exec cp {} "$out/" \;
+        test -s "$out/rt_protos" && test -s "$out/ematch_map"
+      '';
+    in
     unpins-lib.lib.mkStandaloneFlake {
       inherit self;
       name = "iproute2";
@@ -20,6 +33,13 @@
           "ip" "rtmon" "bridge" "tc" "ss" "nstat" "ifstat" "rtacct" "arpd"
           "devlink" "rdma" "dcb" "vdpa" "tipc" "genl" "dpll" "netshaper"
         ] ++ [ { name = "lnstat"; aliases = [ "rtstat" "ctstat" ]; } ];
+        runtimeDataRoot = confTree;
+      };
+      runtimeEmbed.native = pkgs: base: {
+        runtimeStage = ''
+          cp -a ${confTree pkgs}/. "$__unpin_stage/"
+          chmod -R u+w "$__unpin_stage"
+        '';
       };
       linuxOnly = true; # netlink
       # nixpkgs' static build drops libbpf/elfutils (BPF object loading in
@@ -85,15 +105,33 @@
           patches = (old.patches or [ ]) ++ [
             ./misc-link-from-objects.patch
             ./netem-builtin-dists.patch
-            ./ematch-builtin-map.patch
+            ./conf-builtin-tables.patch
           ];
+          env = (old.env or { }) // {
+            NIX_CFLAGS_COMPILE = toString [
+              (old.env.NIX_CFLAGS_COMPILE or "") "-DUNPIN_IPROUTE2_DIR=\"${confRoot}\""
+            ];
+          };
           # configure assumes a pkg-config libbpf is libbpf.so and has `ip -V`
           # look for it in /proc/self/maps; here it is linked in, so the
           # compile-time version is the running one.
           postConfigure = (old.postConfigure or "") + ''
             sed -i '/-DLIBBPF_DYNAMIC/d' config.mk
+            # unpin-vfs rides in libutil.a, beside conf_fopen, and inflates with
+            # the libzstd libelf already links (a vendored copy would collide).
+            echo 'ADDLIB += unpin_vfs.o miniz.o unpin_zstd.o' >> config.mk
+            echo 'LDLIBS += -lzstd' >> config.mk
           '';
           preBuild = (old.preBuild or "") + ''
+            cp ${unpins-lib.lib.vfsCore}/{vfs,miniz,unpin_zstd}.[ch] lib/
+            chmod u+w lib/vfs.[ch] lib/miniz.[ch] lib/unpin_zstd.[ch]
+            MZ="-DMINIZ_USE_ZSTD -DMINIZ_NO_TIME -DMINIZ_NO_ARCHIVE_WRITING_APIS -DMINIZ_NO_ZLIB_APIS -DMINIZ_NO_ZLIB_COMPATIBLE_NAMES"
+            ( cd lib
+              $CC -O2 -c vfs.c -DUNPIN_VFS_DIRS -DUNPIN_VFS_SELF -DUNPIN_VFS_NOWRAP \
+                -DUNPIN_VFS_ROOT='"${confRoot}/"' $MZ -o unpin_vfs.o
+              $CC -O2 -c miniz.c      -D_GNU_SOURCE -w $MZ -o miniz.o
+              $CC -O2 -c unpin_zstd.c -D_GNU_SOURCE -w $MZ -o unpin_zstd.o
+            )
             # netem is the one place upstream runs what it just built, so its
             # generators need the build machine's cc; a bare `make` here would
             # miss the HOSTCC that $makeFlags already carries.
