@@ -8,6 +8,11 @@
   `Unable to find ematch` on any host without an iproute2 package, which is
   where the `ematch_map` table comes from. The table is now built in; a copy in
   `/etc/iproute2` or `/usr/share/iproute2` still takes precedence.
+- On such a host `ip` also showed numbers for routing protocols, realms, DS
+  fields, link groups and netlink protocols (`proto 12`, `group 0`). Upstream's
+  name tables (`rt_protos`, `rt_tables`, `rt_scopes`, `rt_realms`,
+  `rt_dsfield`, `group`, `nl_protos`, `bpf_pinning`) are built in too, with the
+  same precedence.
 
 ### Changed
 
